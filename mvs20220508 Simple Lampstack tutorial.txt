@@ -1,0 +1,92 @@
+#LAMPSTACK TUTORIAL
+#https://cloud.google.com/community/tutorials/setting-up-lamp
+
+#ENSURE IN CORRECT PROJECT
+#NB: IN BASH MIGHT NEED TO RUN: 
+#set CLOUDSDK_PYTHON="C:\Python38\python.exe"
+
+gcloud config set project southern-list-332908
+
+#CREATE VM
+
+gcloud compute instances create lamp-tutorial --project=southern-list-332908 --zone=europe-west2-c --machine-type=e2-micro --network-interface=network-tier=PREMIUM,subnet=default --maintenance-policy=MIGRATE --provisioning-model=STANDARD --service-account=252251060620-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --tags=http-server,https-server --create-disk=auto-delete=yes,boot=yes,device-name=instance-1,image=projects/debian-cloud/global/images/debian-11-bullseye-v20220406,mode=rw,size=10,type=projects/southern-list-332908/zones/us-central1-a/diskTypes/pd-balanced --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+
+#SSH INTO VM
+
+gcloud compute ssh lamp-tutorial --zone=europe-west2-c
+
+#INSTALL PHP ON VM
+
+sudo apt-get update
+sudo apt-get install apache2 php libapache2-mod-php
+
+
+#CREATE A TEST FILE IN ROOT/VAR/WWW/HTML/
+#sudo sh -c 'echo "[YOUR_PHP_CODE]" > /var/www/html/phpinfo.php'
+
+sudo sh -c 'echo "<?php phpinfo(); ?>" > /var/www/html/phpinfo.php'
+
+#TEST: http://[YOUR_EXTERNAL_IP_ADDRESS]/phpinfo.php
+
+#INSTALL MARIADB ON VM
+
+sudo apt-get update
+sudo apt-get install mariadb-server php php-mysql
+
+#CHECK MARIADB SYSTEM STATUS
+
+sudo systemctl status mariadb
+
+#CONFIGURE MARIADB - ADDS SOME SECURITY FEATURES
+
+sudo mysql_secure_installation
+
+#Optional: Use phpMyAdmin for database administration
+
+sudo apt-get install php-bz2 php-gd php-curl
+
+# this command is only needed for Debian 10
+#sudo apt-get install -t buster-backports php-twig
+
+sudo apt-get install phpmyadmin
+
+
+#After installation, complete the configuration:
+
+#1. Uncomment the following line in your server's php.ini file by removing the leading ; character:
+#;extension=mysqli
+
+cd /etc/php/7.4/apache2
+sudo nano php.ini
+
+#2. Include the phpMyAdmin configuration in your apache2.conf file by adding the following line:
+#Include /etc/phpmyadmin/apache.conf
+
+cd /etc/apache2
+sudo nano apache2.conf
+
+#3. Restart Apache
+
+sudo systemctl restart apache2
+
+#Test phpMyAdmin
+#1. Browse to phpMyAdmin:
+#http://[YOUR_EXTERNAL_IP_ADDRESS]/phpmyadmin
+#2.Log in by using the phpmyadmin username and the password that you created when you installed phpMyAdmin.
+
+#NOTE ON SECURE COPY: EXAMPLE
+
+#FROM LOCAL TO ROOT DIRECTORY ON VM
+#gcloud compute scp [LOCAL_FILE_PATH] root@lamp-tutorial:/var/www/html
+
+#FROM VM TO LOCAL
+#gcloud compute scp lamp-tutorial:/var/www/html [LOCAL_FILE_PATH]
+
+#FURTHER INFO ON WEBSITE FOR SOME EXTENSION - IMPORTING FILES
+
+###################################################
+#CLEAN UP
+#DELETE THE INSTANCE
+
+gcloud compute instances delete lamp-tutorial --zone=europe-west2-c
+

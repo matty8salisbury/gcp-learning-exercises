@@ -1,0 +1,62 @@
+
+#Connecting to Cloud SQL: Compute Engine, Private IP and Cloud SQL Proxy
+#https://codelabs.developers.google.com/codelabs/cloud-sql-connectivity-gce-private?hl=en
+
+#Create service account
+
+gcloud iam service-accounts create vm-link-sql-sa --display-name "vm-link-sql-sa service account"
+
+#Assign appropriate roles - cloudSQL client
+
+gcloud projects add-iam-policy-binding southern-list-332908 --member serviceAccount:vm-link-sql-sa@southern-list-332908.iam.gserviceaccount.com --role roles/cloudsql.client
+
+#Code pattern to download bearer token (not required for this script)
+#gcloud iam service-accounts keys create service-account.json --iam-account <SERVICE_ACCOUNT_NAME>@<GCP PROJECT ID>.iam.gserviceaccount.com
+
+#Create a VM
+
+gcloud compute instances create vm-link-sql-vm --machine-type=f1-micro --zone=europe-west2-a --service-account=vm-link-sql-sa@southern-list-332908.iam.gserviceaccount.com --scopes cloud-platform
+
+#Enable service networking API
+
+gcloud services enable servicenetworking.googleapis.com
+gcloud services enable sqladmin.googleapis.com
+
+#Enable private network connectivity on internal default vpc network
+
+gcloud compute addresses create sql-codelab-allocation --global --purpose=VPC_PEERING --prefix-length=24 --network=default
+
+#Assign that range of IP addresses to the internal network 
+
+gcloud services vpc-peerings update --service=servicenetworking.googleapis.com --network=default --project=southern-list-332908 --ranges=sql-codelab-allocation --force
+
+#Create the sql instance with no external ip
+
+gcloud beta sql instances create test-sql-codelab-02 --no-assign-ip --database-version=POSTGRES_11 --tier=db-f1-micro --region=europe-west2 --network=default --root-password=lctcsql242939
+
+#print the sql instance connection name
+
+gcloud sql instances describe test-sql-codelab-02 | grep connectionName
+
+#ssh into the vm
+
+gcloud compute ssh --zone europe-west2-a vm-link-sql-vm
+
+#Once connected to the VM
+#download the sql proxy
+
+sudo apt-get install wget
+wget https://dl.google.com/cloudsql/cloud_sql_proxy.linux.amd64 -O cloud_sql_proxy && chmod +x cloud_sql_proxy
+
+#Run the proxy
+
+./cloud_sql_proxy -instances=southern-list-332908:europe-west2:test-sql-codelab-02=tcp:5432 &
+
+#Install the sql client on the VM and run a query
+
+sudo apt-get install postgresql-client
+
+psql "host=127.0.0.1 port=5432 sslmode=disable user=postgres"
+
+
+

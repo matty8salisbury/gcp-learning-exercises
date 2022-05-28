@@ -1,0 +1,48 @@
+#PUT SHINY APP ON GCP COMPUTE INSTANCE VM
+
+#1. OPEN PORT 3838 to external traffic for all VMs in network
+
+gcloud config set project southern-list-332908
+gcloud services enable containerregistry.googleapis.com
+
+gcloud compute --project=southern-list-332908 firewall-rules create shiny-ingress --description="Open port 3838 for Shiny" --direction=INGRESS --priority=1000 --network=default --action=ALLOW --rules=tcp:3838 --source-ranges=0.0.0.0/0 --target-tags=shiny-server
+gcloud compute --project=southern-list-332908 firewall-rules create shiny-egress --description="Open port 3838 for Shiny" --direction=EGRESS --priority=1000 --network=default --action=ALLOW --rules=tcp:3838 --source-ranges=0.0.0.0/0 --target-tags=shiny-server
+
+#2. CREATE VM
+
+gcloud compute instances create shiny-app-vm-test-vm --project=southern-list-332908 --zone=europe-west2-c --machine-type=e2-medium --network-interface=network-tier=PREMIUM,subnet=default --maintenance-policy=MIGRATE --provisioning-model=STANDARD --service-account=252251060620-compute@developer.gserviceaccount.com --scopes=https://www.googleapis.com/auth/cloud-platform --tags=http-server,https-server,shiny-server --create-disk=auto-delete=yes,boot=yes,device-name=instance-1,image=projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20220419,mode=rw,size=10,type=projects/southern-list-332908/zones/us-central1-a/diskTypes/pd-balanced --no-shielded-secure-boot --shielded-vtpm --shielded-integrity-monitoring --reservation-affinity=any
+
+#3. SECURE COPY FILES ONTO THE VM - run in cmd or powershell on local machine
+
+cd C:\shinymenu
+
+#4. RUN SCRIPT TO PUT SHINY APP ON VM
+
+#price list
+gcloud compute scp price_list.csv shiny-app-vm-test-vm:/tmp/price_list.csv --zone=europe-west2-c
+gcloud compute ssh shiny-app-vm-test-vm --zone=europe-west2-c -- 'sudo mv /tmp/price_list.csv price_list.csv'
+
+#venue info
+gcloud compute scp venueinfo.R shiny-app-vm-test-vm:/tmp/venueinfo.R --zone=europe-west2-c
+gcloud compute ssh shiny-app-vm-test-vm --zone=europe-west2-c -- 'sudo mv /tmp/venueinfo.R venueinfo.R'
+
+#deployment script
+gcloud compute scp orderappSetupUnixEndings.sh shiny-app-vm-test-vm:/tmp/orderappSetupUnixEndings.sh --zone=europe-west2-c
+gcloud compute ssh shiny-app-vm-test-vm --zone=europe-west2-c -- 'sudo mv /tmp/orderappSetupUnixEndings.sh orderappSetupUnixEndings.sh && bash orderappSetupUnixEndings.sh'
+
+#5. REDUCE MACHINE TYPE TO A SMALLER TYPE TO KEEP COST DOWN
+
+gcloud compute instances stop shiny-app-vm-test-vm --zone=europe-west2-c
+gcloud compute instances set-machine-type shiny-app-vm-test-vm --zone=europe-west2-c --machine-type e2-micro
+gcloud compute instances start shiny-app-vm-test-vm --zone=europe-west2-c
+gcloud compute ssh shiny-app-vm-test-vm --zone=europe-west2-c -- 'cd \mydocker && sudo docker run -d -p 3838:3838 customer_app'
+
+#6. CLEAN UP
+gcloud compute instances delete shiny-app-vm-test-vm --zone=europe-west2-c
+
+###################################################################################
+#SCRATCHPAD
+###################################################################################
+docker pull busybox
+docker tag busybox gcr.io/my-project/busybox
+docker push gcr.io/my-project/busybox
