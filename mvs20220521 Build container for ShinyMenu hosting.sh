@@ -90,8 +90,7 @@ gcloud compute ssh shiny-app-vm-test-vm --zone=europe-west2-c
 
 #1. INSTALL DOCKER
 sudo apt-get remove docker docker-engine docker.io containerd runc
-sudo apt-get update 
-sudo apt-get install -y \
+sudo apt-get update && sudo apt-get install -y \
     apt-transport-https \
     ca-certificates \
     curl \
@@ -119,15 +118,15 @@ sudo apt-get update && sudo apt-get install mariadb-server php php-mysql
 #sudo mysql_secure_installation
 
 # Make sure that NOBODY can access the server without a password
-mysql -e "UPDATE mysql.user SET Password = PASSWORD('ciderBath271?') WHERE User = 'root'"
+sudo mysql -e "UPDATE mysql.user SET Password = PASSWORD('ciderBath271?') WHERE User = 'root'"
 # Kill the anonymous users
-mysql -e "DROP USER ''@'localhost'"
+sudo mysql -e "DROP USER ''@'localhost'"
 # Because our hostname varies we'll use some Bash magic here.
-mysql -e "DROP USER ''@'$(hostname)'"
+sudo mysql -e "DROP USER ''@'$(hostname)'"
 # Kill off the demo database
-mysql -e "DROP DATABASE test"
+sudo mysql -e "DROP DATABASE test"
 # Make our changes take effect
-mysql -e "FLUSH PRIVILEGES"
+sudo mysql -e "FLUSH PRIVILEGES"
 # Any subsequent tries to run queries this way will get access denied because lack of usr/pwd param
 
 #3. INSTALL R
@@ -149,7 +148,7 @@ sudo add-apt-repository ppa:c2d4u.team/c2d4u4.0+
 sudo apt install --no-install-recommends r-cran-rstan
 sudo apt install --no-install-recommends r-cran-tidyverse
 
-#INSTALL R AND SHINY
+#4. INSTALL R AND SHINY
 
 sudo apt-get update && sudo apt-get install r-base-dev
 sudo su - \
@@ -158,13 +157,31 @@ sudo apt-get install gdebi-core
 wget https://download3.rstudio.org/ubuntu-18.04/x86_64/shiny-server-1.5.18.987-amd64.deb
 sudo gdebi shiny-server-1.5.18.987-amd64.deb
 
-#INSTALL REQUIRED PACKAGES
+#5. INSTALL REQUIRED PACKAGES
 sudo apt-get update && sudo apt-get install libmariadb-dev
 sudo R -e "install.packages(c('shiny', 'shinyWidgets' ,'DT', 'RMariaDB', 'DBI', 'shinyalert', 'qrcode', 'xtable'))"
 
+#6. INSTALL NGINX ON VM
+sudo apt install nginx -y
+
+#7. INSTALL CERTBOT ON VM
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot
+
+#8. CREATE DOCKER DIRECTORY AND CD INTO IT
+mkdir mydocker 
+cd \mydocker
+
+#5. BUILD BASE DOCKER IMAGE, INCLUDING DOCKER, R BASE, SHINY, REQUIRED R PACKAGES, MYSQL, LIBMARIADB, NGINX AND CERTBOT 
+
+sudo docker container prune -a
+sudo docker image prune -a --force
+sudo docker build -t shinymenu_apps .
+sudo docker tag shinymenu_apps gcr.io/shinymenu-test-01/shinymenu_apps
+sudo docker push gcr.io/shinymenu-test-01/shinymenu_apps
 
 #4. CREATE DOCKER DIRECTORY AND SHINYAPPS DIRECTOR AND CD INTO IT
-mkdir mydocker 
+
 mkdir myshinyapps 
 cd \myshinyapps
 
@@ -223,7 +240,7 @@ sudo docker run -d -p 3838:3838 shinymenu_apps
 #INSTALL R AND SHINY
 ###############################################
 
-sudo R -e "Sys.setenv(SQL_ENDPOINT = 'localhost', SQL_PORT = 3306)
+sudo R -e "Sys.setenv(SQL_ENDPOINT = 'localhost', SQL_PORT = 3306)"
 
 MYSQL_USER='firstUser241'
 MYSQL_USER_PASSWORD='radiatorBarking939!'
@@ -278,3 +295,7 @@ docker run -d -p 80:3838 \
     -v /srv/shinyapps/:/srv/shiny-server/ \
     -v /srv/shinylog/:/var/log/shiny-server/ \
     rocker/shiny
+
+
+#######################################################
+
